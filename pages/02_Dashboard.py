@@ -4,6 +4,8 @@ import numpy as np
 from matplotlib.patches import Circle
 import pandas as pd
 import threading
+import json
+import os
 
 _lock = threading.Lock()
 
@@ -154,17 +156,59 @@ def render_optimization_summary_section(data=None):
     gradient_header("Optimization Summary")
     
     if data is None:
-        data = {
-            "Lever": [
-                "Elimination",
-                "Automation",
-                "Standard Automation",
-                "Agentic AI",
-                "Left Shift"
-            ],
-            "# of Usecases": ["", "", "", "", ""],
-            "FTE": ["", "", "", "", ""]
-        }
+        # Try to load from session state first
+        if 'summary_data' in st.session_state and st.session_state.summary_data:
+            summary_data = st.session_state.summary_data
+        # Otherwise try to load from summary_output.json
+        elif os.path.exists("summary_output.json"):
+            try:
+                with open("summary_output.json", "r") as f:
+                    summary_data = json.load(f)
+            except Exception as e:
+                st.error(f"Error loading summary data: {e}")
+                summary_data = None
+        else:
+            summary_data = None
+        
+        if summary_data:
+            data = {
+                "Lever": [
+                    "Elimination",
+                    "Automation",
+                    "Automation-Agentic AI",
+                    "Left Shift"
+                ],
+                "# of Usecases": [
+                    summary_data.get("elimination_array", [0, 0, 0])[0],
+                    summary_data.get("automation_array", [0, 0, 0])[0],
+                    summary_data.get("automation_agent_array", [0, 0, 0])[0],
+                    summary_data.get("left_shift_array", [0, 0, 0])[0]
+                ],
+                "Ticket Volume": [
+                    summary_data.get("elimination_array", [0, 0, 0])[1],
+                    summary_data.get("automation_array", [0, 0, 0])[1],
+                    summary_data.get("automation_agent_array", [0, 0, 0])[1],
+                    summary_data.get("left_shift_array", [0, 0, 0])[1]
+                ],
+                "FTE": [
+                    summary_data.get("elimination_array", [0, 0, 0])[2],
+                    summary_data.get("automation_array", [0, 0, 0])[2],
+                    summary_data.get("automation_agent_array", [0, 0, 0])[2],
+                    summary_data.get("left_shift_array", [0, 0, 0])[2]
+                ]
+            }
+        else:
+            data = {
+                "Lever": [
+                    "Elimination",
+                    "Automation",
+                    "Automation-Agentic AI",
+                    "Left Shift"
+                ],
+                "# of Usecases": ["", "", "", ""],
+                "Ticket Volume": ["", "", "", ""],
+                "FTE": ["", "", "", ""]
+            }
     
     df = pd.DataFrame(data)
     st.dataframe(df.style.set_table_styles([{
