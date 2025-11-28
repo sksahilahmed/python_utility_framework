@@ -22,10 +22,16 @@ st.set_page_config(
     layout="wide",
 )
 
-# Check if data is uploaded
-if 'df_uploaded' not in st.session_state or st.session_state.df_uploaded is None:
-    st.warning("⚠️ No data uploaded yet. Please go to Home page and upload an Excel file first.")
-    st.info("Navigate using the sidebar: Home → Upload Excel → Process → View Dashboard")
+# Check if data is processed
+if 'processed' not in st.session_state or not st.session_state.processed:
+    st.warning("⚠️ No data processed yet. Please go to Home page, upload an Excel file, and click Process.")
+    st.info("Navigate using the sidebar: Home → Upload Excel → Click 'Process & Go to Dashboard'")
+    st.stop()
+
+# Check if we have results or summary data
+if ('results_df' not in st.session_state or st.session_state.results_df is None) and \
+   ('summary_data' not in st.session_state or st.session_state.summary_data is None):
+    st.error("❌ No results data found. Please process a file first.")
     st.stop()
 
 # Helper functions
@@ -227,33 +233,105 @@ def render_optimization_summary_section(data=None):
     use_container_width=True)
 
 def render_other_tools_section(data=None):
-    """Render Other Recommended Tools with option to use custom data."""
+    """Render Other Recommended Tools with calculated values and conditional tool recommendations."""
     gradient_header("Other Recommended Tools")
     
-    if data is None:
-        criteria = [
-            "P1/P2 >= 10",
-            "FLR <30%",
-            "Triaging Effort >1 FTE",
-            "Service Improvement Recommendation"
-        ]
-        tools = [
-            "CRTSIT Assist",
-            "SOP Genius Recommended",
-            "Auto Ticket Triaging",
-            "Ticket Quality Audit Tool",
-        ]
-        left_col = criteria + ["ServiceNow Performance Analytics"]
-        right_col = tools + [""]
+    try:
+        from other_recommended_tools import calculate_other_recommended_tools
         
-        data = {
-            "Criteria/Recommendation": left_col,
-            "Tool/Action": right_col
-        }
-    
-    df = pd.DataFrame(data)
-    styled = styled_table(df, col_widths=[0.6, 0.4], remark_align='left')
-    st.dataframe(styled, use_container_width=True)
+        # Get the merged DataFrame from session state
+        if 'merged_df' in st.session_state and st.session_state.merged_df is not None:
+            merged_df = st.session_state.merged_df
+            tools_df, raw_data = calculate_other_recommended_tools(merged_df)
+            
+            # Build a 2-column display: Column 1 = Conditions/Values, Column 2 = Tools (if condition met)
+            tools_mapping = {
+                "P1/P2": "CRTSIT Assist",
+                "FLR": "SOP Genius Recommended",
+                "Triaging Effort": "Auto Ticket Triaging"
+            }
+            
+            criteria_values = []
+            tool_recommendations = []
+            
+            # P1/P2
+            p1_p2_display = f"P1/P2: {raw_data['p1_p2']}"
+            criteria_values.append(p1_p2_display)
+            tool_recommendations.append(tools_mapping["P1/P2"] if raw_data["conditions_met"]["p1_p2_show"] else "")
+            
+            # FLR
+            flr_display = f"FLR: {raw_data['flr_percentage']}%"
+            criteria_values.append(flr_display)
+            tool_recommendations.append(tools_mapping["FLR"] if raw_data["conditions_met"]["flr_show"] else "")
+            
+            # Triaging Effort
+            triaging_display = f"Triaging Effort: {raw_data['triaging_effort']}"
+            criteria_values.append(triaging_display)
+            tool_recommendations.append(tools_mapping["Triaging Effort"] if raw_data["conditions_met"]["triaging_effort_show"] else "")
+            
+            # Service Improvement (always shown)
+            criteria_values.append("Service Improvement Recommendation")
+            tool_recommendations.append("Ticket Quality Audit Tool")
+            
+            # Add additional static row
+            criteria_values.append("")
+            tool_recommendations.append("ServiceNow Performance Analytics")
+            
+            # Create display DataFrame
+            display_data = {
+                "Criteria": criteria_values,
+                "Tool/Action": tool_recommendations
+            }
+            
+            df_display = pd.DataFrame(display_data)
+            
+            # Apply styling
+            styled = df_display.style.set_table_styles([{
+                'selector': 'th',
+                'props': [
+                    ('background', f'linear-gradient(90deg, {TEAL_START}, {TEAL_END})'),
+                    ('color', 'white'),
+                    ('font-weight', 'bold'),
+                    ('font-family', FONT_FAMILY),
+                    ('text-align', 'center'),
+                    ('padding', '8px 12px'),
+                    ('border', f'1px solid {GRID_LINE_COLOR}'),
+                    ('height', '24px')
+                ]
+            }]).set_properties(**{
+                'padding': '8px 12px',
+                'font-family': FONT_FAMILY,
+                'font-size': '10pt',
+                'border': f'1px solid {GRID_LINE_COLOR}'
+            })
+            
+            st.dataframe(styled, use_container_width=True)
+            
+            # Show condition thresholds in expander
+            with st.expander("ℹ️ Condition Thresholds"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.write("**Metric Thresholds:**")
+                    st.markdown("""
+                    - **P1/P2**: >= 10
+                    - **FLR**: < 30%
+                    - **Triaging Effort**: > 1 FTE
+                    """)
+                with col2:
+                    st.write("**Current Status:**")
+                    status_text = f"""
+                    - P1/P2: {raw_data['p1_p2']} {'✓ meets threshold' if raw_data['conditions_met']['p1_p2_show'] else '✗ below threshold'}
+                    - FLR: {raw_data['flr_percentage']}% {'✓ meets threshold' if raw_data['conditions_met']['flr_show'] else '✗ above threshold'}
+                    - Triaging: {raw_data['triaging_effort']} {'✓ meets threshold' if raw_data['conditions_met']['triaging_effort_show'] else '✗ below threshold'}
+                    """
+                    st.markdown(status_text)
+        else:
+            st.warning("No merged data available. Please process a file first.")
+            
+    except ImportError:
+        st.error("calculate_other_recommended_tools module not found. Please ensure other_recommended_tools.py exists.")
+    except Exception as e:
+        st.error(f"Error rendering Other Recommended Tools: {e}")
 
 def render_gradewise_mnm_rl_section(data=None):
     """Render GradeWise MnM RL section with option to use custom data."""
@@ -334,12 +412,16 @@ def main():
 
     # Header with file info
     st.markdown("---")
-    col1, col2 = st.columns([3, 1])
+    col1, col2, col3 = st.columns([3, 1, 1])
     with col1:
         st.title("📊 Dashboard Analytics")
     with col2:
-        if st.session_state.file_name:
-            st.info(f"📁 File: {st.session_state.file_name}")
+        if 'file_name' in st.session_state and st.session_state.file_name:
+            st.info(f"📁 {st.session_state.file_name}")
+    with col3:
+        if st.button("🔄 Clear & Re-upload", help="Clear data and upload a new file"):
+            st.session_state.clear()
+            st.rerun()
     st.markdown("---")
 
     # Layout with left and right columns for first 4 sections

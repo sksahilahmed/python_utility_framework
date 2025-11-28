@@ -1,0 +1,39 @@
+{
+  "generated_at": "2025-11-28T01:36:27.055079",
+  "total_tickets": 26691,
+  "matched": 24161,
+  "unmatched": 2530,
+  "match_rate": "90.5%",
+  "summary": [
+    {
+      "Lever": "Elimination",
+      "# of UseCases": 306,
+      "Volume": 26691,
+      "FTE": 2.19
+    },
+    {
+      "Lever": "Automation",
+      "# of UseCases": 22890,
+      "Volume": 26691,
+      "FTE": 163.5
+    },
+    {
+      "Lever": "Standard Automation",
+      "# of UseCases": 15186,
+      "Volume": 26691,
+      "FTE": 108.47
+    },
+    {
+      "Lever": "Agentic AI",
+      "# of UseCases": 7704,
+      "Volume": 26691,
+      "FTE": 55.03
+    },
+    {
+      "Lever": "Left Shift",
+      "# of UseCases": 18299,
+      "Volume": 26691,
+      "FTE": 130.71
+    }
+  ]
+}

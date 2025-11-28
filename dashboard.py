@@ -291,6 +291,45 @@ def render_gradewise_mnm_rl_section():
 
     st.dataframe(styled)
 
+
+def populate_dashboard(results_df, show_on_streamlit: bool = True):
+    """
+    Render dashboard charts and KPIs from results_df (DataFrame with Lever rows).
+    If show_on_streamlit=False, returns a dict of figures/data instead of rendering.
+    """
+    # Expecting results_df to have columns: 'Lever', '# of UseCases', 'Volume', 'FTE'
+    if results_df is None or len(results_df) == 0:
+        if show_on_streamlit:
+            st.warning("No results to display in dashboard.")
+        return None
+
+    # Compute totals
+    total_usecases = int(results_df['# of UseCases'].sum()) if '# of UseCases' in results_df.columns else 0
+    total_fte = float(results_df['FTE'].sum()) if 'FTE' in results_df.columns else 0.0
+
+    if show_on_streamlit:
+        set_page_config()
+        st.markdown("### Calculation Results")
+        cols = st.columns(3)
+        cols[0].metric("Total Usecases", f"{total_usecases}")
+        cols[1].metric("Total FTE", f"{total_fte:.4f}")
+        cols[2].metric("Distinct Levers", f"{len(results_df)}")
+
+        # Bar chart for ticket volumes or FTE per lever
+        st.markdown("### Lever breakdown")
+        chart_df = results_df.set_index('Lever')[["# of UseCases", 'FTE']].fillna(0)
+        st.bar_chart(chart_df['# of UseCases'])
+
+        st.markdown("### Detailed table")
+        st.dataframe(results_df)
+        return None
+    else:
+        return {
+            'total_usecases': total_usecases,
+            'total_fte': total_fte,
+            'results_df': results_df
+        }
+
 def main():
     set_page_config()
     # Apply global CSS for font, background and spacing per user specs
